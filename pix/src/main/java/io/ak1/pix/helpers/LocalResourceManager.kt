@@ -18,6 +18,7 @@ package io.ak1.pix.helpers
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import io.ak1.pix.models.Img
@@ -30,6 +31,7 @@ import io.ak1.pix.utility.IMAGE_VIDEO_SELECTION
 import io.ak1.pix.utility.IMAGE_VIDEO_URI
 import io.ak1.pix.utility.TAG
 import io.ak1.pix.utility.VIDEO_SELECTION
+import java.io.File
 import java.util.Calendar
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -63,100 +65,74 @@ internal class LocalResourceManager(private val context: Context) {
 
     var preSelectedUrls: List<Uri> = ArrayList()
     fun retrieveMedia(start: Int = 0, limit: Int = 0, mode: Mode = Mode.All): ModelList {
-        val cursor = context.getImageVideoCursor(mode)
-        Log.v(TAG, "$className retrieved images from $start to $limit and size ${cursor?.count}")
-        val list = ArrayList<Img>()
-        var header = ""
-        val selectionList = ArrayList<Img>()
+        val guardsProDir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GuardsPro/Pix")
 
-        try {
-            if (cursor != null) {
-                val mediaTypeColumnId =
-                    cursor.getColumnIndex(MediaStore.Files.FileColumns.MEDIA_TYPE)
-                val contentUrl = cursor.getColumnIndex(MediaStore.Files.FileColumns._ID)
-                val imageDate = cursor.getColumnIndex(MediaStore.Files.FileColumns.DATE_MODIFIED)
-                if (start > cursor.count) {
-                    return ModelList(list = ArrayList(), selection = ArrayList())
-                }
-                var end = if (limit == 0) cursor.count - start - 1 else limit
-                if (cursor.count - start < limit) {
-                    end = cursor.count - 1
-                }
-                if (end < start) {
-                    end += (start + 1)
-                }
-                if (start == 0) {
-                    cursor.moveToFirst()
-                } else {
-                    cursor.moveToPosition(start)
-                    header =
-                        context.resources.getDateDifference(
-                            Calendar.getInstance()
-                                .apply { timeInMillis = cursor.getLong(imageDate) * 1000 }
+        if (!guardsProDir.exists() || !guardsProDir.isDirectory) {
+            return ModelList(list = ArrayList(), selection = ArrayList()) // Return empty list if folder doesn't exist
+        }
+
+        // Define allowed file extensions based on mode
+        val validExtensions = when (mode) {
+            Mode.Picture -> listOf("jpg", "jpeg", "png", "webp")
+            Mode.Video -> listOf("mp4", "avi", "mkv", "mov")
+            Mode.All -> listOf("jpg", "jpeg", "png", "webp", "mp4", "avi", "mkv", "mov")
+        }
+
+        // Get and filter files based on mode
+        val files = guardsProDir.listFiles()
+            ?.filter { it.isFile && it.extension.lowercase() in validExtensions }
+            ?.sortedByDescending { it.lastModified() }
+            ?: return ModelList(list = ArrayList(), selection = ArrayList()) // Return empty list if no files
+
+        // Clear lists before adding new data
+        val list = mutableListOf<Img>()
+        val selectionList = mutableListOf<Img>()
+        val addedFiles = mutableSetOf<String>() // Track unique file paths
+        var lastHeader = ""
+
+        for ((index, file) in files.withIndex()) {
+            val path = Uri.fromFile(file) // Convert file to URI
+            val filePath = file.absolutePath
+            if (filePath in addedFiles) continue // Skip duplicate file
+
+            val mediaType = if (file.extension.lowercase() in listOf("mp4", "avi", "mkv", "mov"))
+                MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO
+            else
+                MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE
+
+            val dateDifference = context.resources.getDateDifference(Calendar.getInstance().apply { timeInMillis = file.lastModified() })
+
+            // Ensure header is added only once per date group
+            if (lastHeader != dateDifference) {
+                lastHeader = dateDifference
+                if (list.none { it.headerDate == dateDifference }) {
+                    list.add(
+                        Img(
+                            headerDate = dateDifference,
+                            mediaType = mediaType
                         )
-                }
-                synchronized(context) {
-                    var pos = start
-                    Log.e(TAG, "$className start $start till end $end")
-                    for (i in start until end) {
-                        try {
-                            val path = try {
-                                Uri.withAppendedPath(
-                                    IMAGE_VIDEO_URI,
-                                    "" + cursor.getInt(contentUrl)
-                                )
-                            } catch (ex: Exception) {
-                                Log.e(TAG, "$className Exception ${ex.message}")
-                                Uri.EMPTY
-                            }
-
-                            val dateDifference =
-                                context.resources.getDateDifference(
-                                    Calendar.getInstance()
-                                        .apply { timeInMillis = cursor.getLong(imageDate) * 1000 }
-                                )
-                            val mediaType = cursor.getInt(mediaTypeColumnId)
-                            if (!header.equals("" + dateDifference, ignoreCase = true)) {
-                                header = "" + dateDifference
-                                pos += 1
-                                list.add(
-                                    Img(
-                                        headerDate = "" + dateDifference,
-                                        mediaType = mediaType
-                                    )
-                                )
-                            }
-                            Img(
-                                headerDate = header,
-                                contentUrl = path,
-                                scrollerDate = pos.toString(),
-                                mediaType = mediaType
-                            ).apply {
-                                this.position = pos
-                            }.also {
-                                if (preSelectedUrls.contains(it.contentUrl)) {
-                                    it.selected = true
-                                    selectionList.add(it)
-                                }
-                                pos += 1
-                                list.add(it)
-                            }
-                        } catch (ex: java.lang.Exception) {
-                            ex.printStackTrace()
-                            Log.e(TAG, "$className Exception ${ex.message}")
-                        }
-                        cursor.moveToNext()
-                    }
-                    cursor.close()
+                    )
                 }
             }
-        } catch (ex: CancellationException) {
-            Log.e(TAG, "$className CancellationException ${ex.message}")
-            return ModelList(list = ArrayList(), selection = ArrayList())
-        } catch (ex: Exception) {
-            Log.e(TAG, "$className Exception ${ex.message}")
-            ex.printStackTrace()
+
+            val img = Img(
+                headerDate = lastHeader,
+                contentUrl = path,
+                scrollerDate = index.toString(),
+                mediaType = mediaType
+            )
+
+            img.position = index
+
+            if (preSelectedUrls.contains(img.contentUrl)) {
+                img.selected = true
+                selectionList.add(img)
+            }
+
+            list.add(img)
+            addedFiles.add(filePath) // Mark file as added
         }
-        return ModelList(list = list, selection = selectionList)
+
+        return ModelList(list = list as java.util.ArrayList<Img>, selection = selectionList as java.util.ArrayList<Img>)
     }
 }

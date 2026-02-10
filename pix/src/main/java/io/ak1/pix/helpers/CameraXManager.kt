@@ -18,6 +18,7 @@ package io.ak1.pix.helpers
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.net.Uri
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
@@ -283,12 +284,10 @@ class CameraXManager(
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                     val savedUri = Uri.fromFile(photoFile)
                     val msg = "Photo capture succeeded: $savedUri"
-                    // Toast.makeText(requireActivity, msg, Toast.LENGTH_SHORT).show()
                     Log.d("TAG", msg)
-                    requireActivity.scanPhoto(photoFile) {
-                        output.savedUri?.let {
-                            callback(it, null)
-                        }
+
+                    requireActivity.scanPhoto(photoFile) { scannedUri ->
+                        callback(scannedUri ?: savedUri, null) // Use scanned URI, fallback to direct file URI
                     }
                 }
             }
@@ -337,14 +336,9 @@ class CameraXManager(
     }
 
     private fun getOutputDirectory(): File {
-        val mediaDir = requireActivity.externalMediaDirs.firstOrNull()?.let {
-            File(it, options.path).apply { mkdirs() }
-        }
-        return if (mediaDir != null && mediaDir.exists()) {
-            mediaDir
-        } else {
-            requireActivity.filesDir
-        }
+        return File(requireActivity
+            .getExternalFilesDir(Environment.DIRECTORY_PICTURES), "GuardsPro/Pix")
+            .apply { if (!exists()) mkdirs() }
     }
 
     /** Returns true if the device has an available back camera. False otherwise */

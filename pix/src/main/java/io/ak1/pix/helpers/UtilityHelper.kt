@@ -24,6 +24,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.annotation.ColorRes
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.net.toUri
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updateMargins
 import androidx.fragment.app.FragmentActivity
@@ -74,17 +75,8 @@ val Int.counterText: String
     }
 
 fun Context.scanPhoto(file: File, callback: ((Uri) -> Unit)? = null) {
-    MediaScannerConnection.scanFile(
-        this,
-        arrayOf(file.toString()),
-        arrayOf(file.name),
-    ) { _, uri ->
-        val mainUri = Uri.withAppendedPath(
-            IMAGE_VIDEO_URI,
-            uri.lastPathSegment
-        )
-        callback?.invoke(mainUri)
-    }
+    val uri = file.toUri() // Directly get file URI instead of scanning
+    callback?.invoke(uri)
 }
 
 fun FragmentActivity.setUpMargins(binding: PixBindings) {
