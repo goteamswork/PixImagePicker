@@ -87,11 +87,11 @@ fun FragmentActivity.setUpMargins(binding: PixBindings) {
             0,
             this@setUpMargins.statusBarHeight,
             0,
-            height
+            0
         )
     }
     binding.controlsLayout.controlsLayout.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-        updateMargins(0, 0, 0, height)
+        updateMargins(0, 0, 0, 0)
     }
     binding.gridLayout.sendButton.apply {
         updateLayoutParams<ViewGroup.MarginLayoutParams> {
@@ -99,7 +99,7 @@ fun FragmentActivity.setUpMargins(binding: PixBindings) {
                 0,
                 0,
                 this@apply.context.toPx(16f).toInt(),
-                this@apply.context.toPx(160f).toInt() + height
+                this@apply.context.toPx(160f).toInt()
             )
         }
     }

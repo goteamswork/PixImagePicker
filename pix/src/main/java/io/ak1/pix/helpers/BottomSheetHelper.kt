@@ -85,7 +85,7 @@ private fun manipulateVisibility(activity: FragmentActivity, binding: PixBinding
             topbar.show()
             activity.showStatusBar()
         } else if (recyclerView.isVisible && slideOffset == 0f) {
-            activity.hideStatusBar()
+            //activity.hideStatusBar()
             recyclerView.invisible()
             topbar.hide()
         }
