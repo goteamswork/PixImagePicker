@@ -12,7 +12,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import io.ak1.pix.helpers.*
-import io.ak1.pix.utility.WIDTH
+import io.ak1.pix.utility.width
 import io.ak1.pixsample.R
 import io.ak1.pixsample.commons.Adapter
 import io.ak1.pixsample.custom.fragmentBody2
@@ -60,7 +60,7 @@ class ViewPager2Sample : AppCompatActivity() {
             })
         }.also {
             it.getTabAt(0)?.view?.layoutParams?.width = iconWidth
-            val remainingSize = (WIDTH - iconWidth) / 3
+            val remainingSize = (width - iconWidth) / 3
             (1..3).forEach { num ->
                 it.getTabAt(num)?.view?.layoutParams?.width = remainingSize
             }

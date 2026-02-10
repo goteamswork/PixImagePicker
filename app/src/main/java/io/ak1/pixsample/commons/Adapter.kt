@@ -9,7 +9,6 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.bumptech.glide.request.RequestOptions
-import io.ak1.pix.utility.WIDTH
 
 /**
  * Created By Akshay Sharma on 20,June,2021
@@ -41,7 +40,7 @@ class Adapter : RecyclerView.Adapter<Adapter.ViewHolder>() {
                 RelativeLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 setMargins(10, 10, 10, 10)
-                val size = (WIDTH / 3) - 20
+                val size = (io.ak1.pix.utility.width / 3) - 20
                 height = size
                 width = size
             }
