@@ -46,7 +46,7 @@ internal class PixViewModel :
 
     private lateinit var options: Options
     suspend fun retrieveImages(localResourceManager: LocalResourceManager) {
-        val sizeInitial = 100
+        val sizeInitial = 50
         selectionList.value?.clear()
         allImagesList.postValue(
             localResourceManager.retrieveMedia(

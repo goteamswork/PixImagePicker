@@ -31,6 +31,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.SimpleItemAnimator
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import io.ak1.pix.adapters.InstantImageAdapter
 import io.ak1.pix.adapters.MainImageAdapter
@@ -135,7 +137,7 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
         if (mBottomSheetBehavior?.state == BottomSheetBehavior.STATE_COLLAPSED) {
             Handler(Looper.getMainLooper()).postDelayed({
                 try {
-                    requireActivity().hideStatusBar()
+                    //requireActivity().hideStatusBar()
                 } catch (e: IllegalStateException) {
                     e.message?.let { Log.e("PixFragment", it) }
                 }
@@ -227,11 +229,25 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        // stop all animations on the RecyclerView.
+        binding.gridLayout.recyclerView.itemAnimator?.endAnimations()
+        binding.gridLayout.instantRecyclerView.itemAnimator?.endAnimations()
+
+        // Set the adapter to null to ensure proper cleanup and prevent memory leaks.
+        binding.gridLayout.recyclerView.adapter = null
+        binding.gridLayout.instantRecyclerView.adapter = null
+
+        //  Gracefully shut down the camera to release all resources.
+        //  This prevents the "Attempt to use camera from a different process" crash.
+        cameraXManager?.shutdownSafely()
+        cameraXManager = null // Good practice to clear the reference.
+
         model.imageList.removeObservers(requireActivity())
         model.selectionList.removeObservers(requireActivity())
         model.longSelection.removeObservers(requireActivity())
         model.callResults.removeObservers(requireActivity())
+
+        super.onDestroyView()
     }
 
     private fun observeSelectionList() {
@@ -297,11 +313,14 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
             PixBus.on(this) {
                 val list = model.selectionList.value ?: HashSet()
                 when {
-                    list.size > 0 -> {
+                    list.isNotEmpty() -> {
                         for (img in list) {
-                            //  options.preSelectedUrls = ArrayList()
-                            instantImageAdapter.select(false, img.position)
-                            mainImageAdapter.select(false, img.position)
+                            if (img.position in 0 until instantImageAdapter.itemCount) {
+                                instantImageAdapter.select(false, img.position)
+                            }
+                            if (img.position in 0 until mainImageAdapter.itemCount) {
+                                mainImageAdapter.select(false, img.position)
+                            }
                         }
                         model.selectionList.postValue(HashSet())
                     }
@@ -319,6 +338,8 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
     }
 
     private fun setupControls() {
+        if (!isAdded) return // Prevent execution if fragment is detached
+
         binding.setupClickControls(model, cameraXManager, options) { int, uri ->
             when (int) {
                 0 -> model.returnObjects()
@@ -336,6 +357,7 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
                     }
                     model.selectionList.value?.add(Img(contentUrl = uri))
                     Handler(Looper.getMainLooper()).post {
+                        if (!isAdded) return@post // Ensure fragment is still attached
                         binding.setSelectionText(
                             requireActivity(),
                             (model.selectionList.value ?: HashSet()).size
@@ -410,13 +432,21 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
         }
 
         binding.gridLayout.apply {
-            instantRecyclerView.adapter = instantImageAdapter
-            instantRecyclerView.addOnItemTouchListener(CustomItemTouchListener(binding))
-            recyclerView.setupMainRecyclerView(
-                context,
-                mainImageAdapter,
-                scrollListener(this@PixFragment, binding)
-            )
+            instantRecyclerView.apply {
+                setHasFixedSize(true)
+                adapter = instantImageAdapter
+                addOnItemTouchListener(CustomItemTouchListener(binding))
+                (itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
+                itemAnimator = null
+            }
+            recyclerView.apply {
+                setHasFixedSize(true)
+                setupMainRecyclerView(
+                    context, mainImageAdapter, scrollListener(this@PixFragment, binding)
+                )
+                (itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
+                itemAnimator = null
+            }
         }
     }
 

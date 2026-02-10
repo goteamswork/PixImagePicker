@@ -17,6 +17,7 @@ package io.ak1.pix.helpers
 
 import android.annotation.SuppressLint
 import android.content.ContentValues
+import android.hardware.camera2.CameraAccessException
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -75,8 +76,17 @@ class CameraXManager(
     // Select back camera as a default
     private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
+    @Volatile
+    private var isShutdown = false
+
     /** Initialize CameraX, and prepare to bind the camera use cases  */
     fun setUpCamera(binding: PixBindings) {
+        // If shutdown was already called, skip setup
+        if (isShutdown) {
+            Log.i(TAG, "setUpCamera() skipped because shutdown already requested")
+            return
+        }
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireActivity)
         cameraProviderFuture.addListener({
             // CameraProvider
@@ -84,6 +94,50 @@ class CameraXManager(
             // Build and bind the camera use cases
             bindCameraUseCases(binding)
         }, ContextCompat.getMainExecutor(requireActivity))
+    }
+
+    /** Safe shutdown: idempotent + ignores race conditions */
+    private fun shutdown() {
+        if (isShutdown) return
+        isShutdown = true
+
+        try {
+            /// Stop recording if active
+            recording?.let {
+                try {
+                    it.stop()
+                } catch (_: Exception) { /* Ignore */ }
+                recording = null
+            }
+
+            // Unbind all use cases
+            cameraProvider?.unbindAll()
+
+            // Null references
+            imageCapture = null
+            videoCapture = null
+            preview = null
+            useCases.clear()
+        } catch (e: CameraAccessException) {
+            Log.e("CameraXManager", "CameraAccessException during shutdown: ${e.message}")
+        } catch (e: SecurityException) {
+            if (e.message?.contains("different process") == true) {
+                Log.e("CameraXManager", "Camera already released by system, ignoring SecurityException.")
+            } else {
+                Log.e("CameraXManager", "SecurityException during shutdown: ${e.message}")
+            }
+        } catch (e: Exception) {
+            Log.e("CameraXManager", "Unexpected exception during shutdown: ${e.message}")
+        } finally {
+            cameraProvider = null
+        }
+    }
+
+    /** Optional helper to ensure safe shutdown from fragments */
+    fun shutdownSafely() {
+        try {
+            shutdown()
+        } catch (_: Exception) { /* Never crash */ }
     }
 
     /** Declare and bind preview, capture and analysis use cases */
