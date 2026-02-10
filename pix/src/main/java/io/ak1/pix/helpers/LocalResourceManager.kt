@@ -33,6 +33,7 @@ import io.ak1.pix.utility.TAG
 import io.ak1.pix.utility.VIDEO_SELECTION
 import java.io.File
 import java.util.Calendar
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -78,10 +79,37 @@ internal class LocalResourceManager(private val context: Context) {
             Mode.All -> listOf("jpg", "jpeg", "png", "webp", "mp4", "avi", "mkv", "mov")
         }
 
+        // Today's date range
+        val todayStart = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val tomorrowStart = todayStart + TimeUnit.DAYS.toMillis(1)
+
         // Get and filter files based on mode
-        val files = guardsProDir.listFiles()
-            ?.filter { it.isFile && it.extension.lowercase() in validExtensions }
-            ?.sortedByDescending { it.lastModified() }
+        val files = guardsProDir.listFiles()?.mapNotNull { file ->
+            if (!file.isFile) return@mapNotNull null
+
+            when {
+                // Delete old files
+                file.lastModified() < todayStart -> {
+                    try {
+                        if (file.delete()) {
+                            Log.e("PixImagePicker", "Deleted old file: ${file.path}")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("PixImagePicker", "Failed to delete file: ${file.path}", e)
+                    }
+                    null
+                }
+                // Keep only today's valid files
+                file.extension.lowercase() in validExtensions &&
+                        file.lastModified() in todayStart until tomorrowStart -> file
+                else -> null
+            }
+        }?.sortedByDescending { it.lastModified() }
             ?: return ModelList(list = ArrayList(), selection = ArrayList()) // Return empty list if no files
 
         // Clear lists before adding new data
@@ -89,6 +117,11 @@ internal class LocalResourceManager(private val context: Context) {
         val selectionList = mutableListOf<Img>()
         val addedFiles = mutableSetOf<String>() // Track unique file paths
         var lastHeader = ""
+
+        val now = Calendar.getInstance()
+        val lastMonth = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -now.get(Calendar.DAY_OF_MONTH)) }
+        val lastWeek = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -7) }
+        val recent = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -2) }
 
         for ((index, file) in files.withIndex()) {
             val path = Uri.fromFile(file) // Convert file to URI
@@ -100,7 +133,8 @@ internal class LocalResourceManager(private val context: Context) {
             else
                 MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE
 
-            val dateDifference = context.resources.getDateDifference(Calendar.getInstance().apply { timeInMillis = file.lastModified() })
+            val fileCal = Calendar.getInstance().apply { timeInMillis = file.lastModified() }
+            val dateDifference = context.resources.getDateDifference(fileCal, lastMonth, lastWeek, recent)
 
             // Ensure header is added only once per date group
             if (lastHeader != dateDifference) {
