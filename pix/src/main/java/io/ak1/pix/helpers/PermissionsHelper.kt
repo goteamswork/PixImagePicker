@@ -33,8 +33,7 @@ import io.ak1.pix.models.Options
 private val REQUIRED_PERMISSIONS_IMAGES =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.READ_MEDIA_IMAGES
+            Manifest.permission.CAMERA
         )
     } else if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
         arrayOf(
@@ -52,9 +51,7 @@ private val REQUIRED_PERMISSIONS_VIDEO =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(
             Manifest.permission.CAMERA,
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.READ_MEDIA_VIDEO
+            Manifest.permission.RECORD_AUDIO
         )
     } else if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
         arrayOf(
