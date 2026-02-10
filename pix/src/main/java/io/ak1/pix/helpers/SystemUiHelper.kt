@@ -56,7 +56,7 @@ fun Activity.hideStatusBar() {
 
 fun Activity.showStatusBar() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        window.setDecorFitsSystemWindows(false)
+        window.setDecorFitsSystemWindows(true)
         window.insetsController?.show(WindowInsets.Type.statusBars())
     } else {
         @Suppress("DEPRECATION")
