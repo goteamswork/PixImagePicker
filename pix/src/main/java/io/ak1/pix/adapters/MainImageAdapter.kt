@@ -100,9 +100,11 @@ internal class MainImageAdapter(context: Context, internal val spanCount: Int) :
         itemList.clear()
     }
 
-    fun select(isSelected: Boolean, pos: Int) {
-        itemList[pos].selected = isSelected
-        notifyItemChanged(pos)
+    fun select(selection: Boolean, pos: Int) {
+        if (pos in itemList.indices) {
+            itemList[pos].selected = selection
+            notifyItemChanged(pos)
+        }
     }
 
     override fun getItemId(position: Int): Long = itemList[position].contentUrl.hashCode().toLong()

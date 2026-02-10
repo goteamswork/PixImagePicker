@@ -64,8 +64,8 @@ class InstantImageAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.
     }
 
     fun select(selection: Boolean, pos: Int) {
-        if (pos < 100) {
-            itemList[pos].selected = (selection)
+        if (pos in itemList.indices) {
+            itemList[pos].selected = selection
             notifyItemChanged(pos)
         }
     }
