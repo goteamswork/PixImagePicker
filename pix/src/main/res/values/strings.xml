@@ -14,4 +14,6 @@
     <string name="click_button">click button</string>
     <string name="camera_flash_button">camera flash button</string>
     <string name="lens_facing_button">lens facing button</string>
+    <string name="camera_storage_permission_never_ask_message">Camera and Storage permission was denied with never ask again.To allow, please open app settings, go to permissions and allow.</string>
+    <string name="error_label">Error!</string>
 </resources>

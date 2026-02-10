@@ -25,6 +25,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -110,18 +112,24 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
     private var _binding: PixBindings? = null
     private val binding get() = _binding!!
 
+    private var permissionDialog: AlertDialog? = null
+
     private var permReqLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            if (permissions.all {
-                    it.value
-                }
-            ) {
+            if (permissions.all { it.value }) {
+                // Permission granted
                 binding.permissionsLayout.permissionsLayout.hide()
                 binding.gridLayout.gridLayout.show()
                 initialise(requireActivity())
             } else {
-                binding.gridLayout.gridLayout.hide()
-                binding.permissionsLayout.permissionsLayout.show()
+                if (!isAdded) return@registerForActivityResult
+
+                if (binding.permissionsLayout.permissionsLayout.isVisible) {
+                    view?.post { showPermissionSettingsDialog() }
+                } else {
+                    binding.gridLayout.gridLayout.hide()
+                    binding.permissionsLayout.permissionsLayout.show()
+                }
             }
         }
 
@@ -229,6 +237,9 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
     }
 
     override fun onDestroyView() {
+        permissionDialog?.dismiss()
+        permissionDialog = null
+
         // stop all animations on the RecyclerView.
         binding.gridLayout.recyclerView.itemAnimator?.endAnimations()
         binding.gridLayout.instantRecyclerView.itemAnimator?.endAnimations()
@@ -475,6 +486,8 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
 
     override fun onDestroy() {
         scope.cancel()
+        permissionDialog?.dismiss()
+        permissionDialog = null
         super.onDestroy()
     }
 
@@ -527,5 +540,29 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
             }
         }
         return false
+    }
+
+    private fun showPermissionSettingsDialog() {
+        if (!isAdded || requireActivity().isFinishing) return
+
+        permissionDialog?.dismiss()
+        permissionDialog = AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.error_label))
+            .setMessage(getString(R.string.camera_storage_permission_never_ask_message))
+            .setPositiveButton(getString(R.string.pix_ok)) { dialog, _ ->
+                dialog.dismiss()
+                if (isAdded) {
+                    PixBus.returnObjects(
+                        event = PixEventCallback.Results(listOf(), PixEventCallback.Status.SUCCESS)
+                    )
+                }
+            }
+            .create()
+
+        view?.post {
+            if (isAdded && permissionDialog?.isShowing == false) {
+                permissionDialog?.show()
+            }
+        }
     }
 }
