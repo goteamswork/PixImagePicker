@@ -21,6 +21,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.ScaleGestureDetector
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -85,6 +86,7 @@ class CameraXManager(
     }
 
     /** Declare and bind preview, capture and analysis use cases */
+    @SuppressLint("ClickableViewAccessibility")
     fun bindCameraUseCases(binding: PixBindings) {
         // Check if view is correctly attached to window, stop binding otherwise
         val display = previewView.display ?: return
@@ -208,6 +210,20 @@ class CameraXManager(
             }
             // Attach the viewfinder's surface provider to preview use case
             preview?.surfaceProvider = previewView.surfaceProvider
+
+            // Enable zoom with pinch gestures
+            val scaleGestureDetector = ScaleGestureDetector(requireActivity, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    val scale = camera.cameraInfo.zoomState.value?.zoomRatio ?: 1f
+                    val newZoom = scale * detector.scaleFactor
+                    camera.cameraControl.setZoomRatio(newZoom.coerceIn(1f, camera.cameraInfo.zoomState.value?.maxZoomRatio ?: 1f))
+                    return true
+                }
+            })
+            previewView.setOnTouchListener { _, event ->
+                scaleGestureDetector.onTouchEvent(event)
+                true
+            }
         } catch (exc: Exception) {
             Log.e(TAG, "Use case binding failed", exc)
         }
