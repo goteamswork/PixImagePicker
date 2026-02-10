@@ -84,8 +84,18 @@ internal class MainImageAdapter(context: Context, internal val spanCount: Int) :
     }
 
     fun addImageList(images: ArrayList<Img>) {
-        itemList.addAll(images)
-        notifyDataSetChanged()
+        if (images.isEmpty()) return
+
+        // Build a set of existing URLs
+        val existing = itemList.map { it.contentUrl.toString() }.toHashSet()
+
+        // Filter only truly new ones
+        val newImages = images.filter { !existing.contains(it.contentUrl.toString()) }
+
+        if (newImages.isNotEmpty()) {
+            itemList.addAll(newImages)
+            notifyDataSetChanged()
+        }
     }
 
     override fun getItemViewType(position: Int): Int {

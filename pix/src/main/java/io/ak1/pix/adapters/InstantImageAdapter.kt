@@ -55,8 +55,18 @@ class InstantImageAdapter(context: Context) : RecyclerView.Adapter<RecyclerView.
     }
 
     fun addImageList(images: ArrayList<Img>) {
-        itemList.addAll(images)
-        notifyDataSetChanged()
+        if (images.isEmpty()) return
+
+        // Build a set of existing URLs
+        val existing = itemList.map { it.contentUrl.toString() }.toHashSet()
+
+        // Filter only truly new ones
+        val newImages = images.filter { !existing.contains(it.contentUrl.toString()) }
+
+        if (newImages.isNotEmpty()) {
+            itemList.addAll(newImages)
+            notifyDataSetChanged()
+        }
     }
 
     fun clearList() {
