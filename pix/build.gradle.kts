@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.ksp)
     id("kotlin-parcelize")
     alias(libs.plugins.maven.publish)
-    signing
     alias(libs.plugins.spotless)
     alias(libs.plugins.dokka)
     alias(libs.plugins.detekt)
@@ -203,6 +202,16 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
 }
 
-signing {
-    sign(publishing.publications)
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = "io.ak1.pix"
+                artifactId = "PixImagePicker"
+                version = "1.6.8"
+
+                from(components["release"])
+            }
+        }
+    }
 }

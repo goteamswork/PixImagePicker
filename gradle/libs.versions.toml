@@ -35,8 +35,6 @@ turbine = "1.2.0"
 kotest = "5.9.1"
 coroutines-test = "1.10.2"
 
-# Publishing
-maven-publish = "0.36.0"
 
 # Code Quality Tools
 spotless = "8.2.0"
@@ -108,7 +106,7 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
+maven-publish = { id = "maven-publish" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
