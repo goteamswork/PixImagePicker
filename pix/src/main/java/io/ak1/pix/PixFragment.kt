@@ -243,7 +243,7 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
         setupFastScroller(context)
         observeSelectionList()
         retrieveMedia()
-        setBottomSheetBehavior()
+        //setBottomSheetBehavior()
         setupControls()
         backPressController()
     }
@@ -372,21 +372,21 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
                 2 -> model.longSelection.postValue(true)
 
                 3 -> {
-                    if (model.selectionList.value.isNullOrEmpty()) {
-                        model.selectionList.value?.add(Img(contentUrl = uri))
-                        scope.cancel(CancellationException("canceled intentionally"))
-                        model.returnObjects()
-                        return@setupClickControls
-                    }
-                    model.selectionList.value?.add(Img(contentUrl = uri))
+                    val list = model.selectionList.value ?: hashSetOf()
+
+                    // Prevent duplicates
+                    if (list.any { it.contentUrl == uri }) return@setupClickControls
+
+                    list.add(Img(contentUrl = uri))
+                    model.selectionList.value = list
                     Handler(Looper.getMainLooper()).post {
                         if (!isAdded) return@post // Ensure fragment is still attached
                         binding.setSelectionText(
                             requireActivity(),
-                            (model.selectionList.value ?: HashSet()).size
+                            list.size
                         )
                         options.preSelectedUrls.clear()
-                        options.preSelectedUrls.addAll((model.selectionList.value ?: HashSet()).map { it.contentUrl })
+                        options.preSelectedUrls.addAll(list.map { it.contentUrl })
                         retrieveMedia()
                     }
                 }
@@ -458,7 +458,7 @@ class PixFragment(private val resultCallback: ((PixEventCallback.Results) -> Uni
             instantRecyclerView.apply {
                 setHasFixedSize(true)
                 adapter = instantImageAdapter
-                addOnItemTouchListener(CustomItemTouchListener(binding))
+                //addOnItemTouchListener(CustomItemTouchListener(binding))
                 (itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
                 itemAnimator = null
             }

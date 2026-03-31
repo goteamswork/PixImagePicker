@@ -64,22 +64,20 @@ internal class PixViewModel :
     }
 
     override fun onImageSelected(element: Img?, position: Int, callback: (Boolean) -> Boolean) {
-        if (longSelectionValue) {
-            selectionList.value?.apply {
-                if (contains(element)) {
-                    remove(element)
-                    callback(false)
-                } else if (callback(true)) {
-                    element!!.position = (position)
-                    add(element)
-                }
-            }
-            selectionList.postValue(selectionList.value)
-        } else {
-            element!!.position = position
-            selectionList.value?.add(element)
-            returnObjects()
+        // Always enable selection mode
+        if (!longSelectionValue) {
+            longSelection.postValue(true)
         }
+        selectionList.value?.apply {
+            if (contains(element)) {
+                remove(element)
+                callback(false)
+            } else if (callback(true)) {
+                element!!.position = (position)
+                add(element)
+            }
+        }
+        selectionList.postValue(selectionList.value)
     }
 
     override fun onImageLongSelected(element: Img?, position: Int, callback: (Boolean) -> Boolean) {
