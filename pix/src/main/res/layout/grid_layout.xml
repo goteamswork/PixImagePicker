@@ -16,29 +16,33 @@
             android:background="@color/primary_color_pix"
             android:translationY="@dimen/margin_top_nve" />
 
+        <include
+            layout="@layout/controls_layout" />
 
         <androidx.coordinatorlayout.widget.CoordinatorLayout
             android:id="@+id/main_content"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:alpha="1">
 
             <FrameLayout
                 android:id="@+id/bottom_sheet"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="82dp"
                 android:layout_marginStart="-2px"
-                app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+                android:layout_gravity="bottom"
+                android:visibility="gone">
+                <!--app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"-->
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/recyclerView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_marginLeft="-2px"
-                    android:layout_marginTop="@dimen/small_thumb"
+                    android:layout_marginTop="0dp"
                     android:background="@color/surface_color_pix"
                     android:orientation="vertical"
-                    android:visibility="invisible"
+                    android:visibility="gone"
                     app:layoutManager="androidx.recyclerview.widget.GridLayoutManager" />
 
                 <TextView
@@ -152,7 +156,7 @@
                             android:background="@drawable/ic_expand_less_black_24dp" />
 
                         <androidx.recyclerview.widget.RecyclerView
-                            android:id="@+id/instant_recycler_view"
+                            android:id="@+id/instant_recycler_view_old"
                             android:layout_width="match_parent"
                             android:layout_height="82dp"
                             android:orientation="horizontal"
@@ -164,6 +168,16 @@
             </FrameLayout>
 
         </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+        <!-- Instant Recycler (Selected images preview) -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/instant_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="82dp"
+            android:orientation="horizontal"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="110dp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
         <FrameLayout
             android:id="@+id/sendButton"
@@ -190,9 +204,6 @@
                 android:textColor="#fff"
                 android:textSize="12sp" />
         </FrameLayout>
-
-        <include
-            layout="@layout/controls_layout" />
 
     </FrameLayout>
 
