@@ -17,6 +17,13 @@ package io.ak1.pix.helpers
 
 import android.annotation.SuppressLint
 import android.content.ContentValues
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.hardware.camera2.CameraAccessException
 import android.net.Uri
 import android.os.Environment
@@ -41,6 +48,7 @@ import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.FragmentActivity
 import io.ak1.pix.models.Flash
 import io.ak1.pix.models.Mode
@@ -48,8 +56,11 @@ import io.ak1.pix.models.Options
 import io.ak1.pix.models.Ratio
 import io.ak1.pix.utility.PixBindings
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -66,6 +77,7 @@ class CameraXManager(
 ) {
     var recording: Recording? = null
     private val executor = ContextCompat.getMainExecutor(requireActivity)
+    private val imageExecutor = Executors.newSingleThreadExecutor()
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     var imageCapture: ImageCapture? = null
     var videoCapture: VideoCapture<Recorder>? = null
@@ -340,8 +352,17 @@ class CameraXManager(
                     val msg = "Photo capture succeeded: $savedUri"
                     Log.d("TAG", msg)
 
-                    requireActivity.scanPhoto(photoFile) { scannedUri ->
-                        callback(scannedUri ?: savedUri, null) // Use scanned URI, fallback to direct file URI
+                    imageExecutor.execute {
+                        // Add timestamp directly to file
+                        if (options.enableTimestamp) {
+                            addTimestampToFile(photoFile)
+                        }
+
+                        requireActivity.runOnUiThread {
+                            requireActivity.scanPhoto(photoFile) { scannedUri ->
+                                callback(scannedUri ?: savedUri, null) // Use scanned URI, fallback to direct file URI
+                            }
+                        }
                     }
                 }
             }
@@ -409,8 +430,128 @@ class CameraXManager(
         return AspectRatio.RATIO_16_9
     }
 
+    /* add timestamp based on settings */
+    private fun addTimestampToFile(file: File) {
+        var originalBitmap: Bitmap? = null
+        var rotatedBitmap: Bitmap? = null
+        var finalBitmap: Bitmap? = null
+
+        try {
+            val options = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.RGB_565
+            }
+
+            originalBitmap = BitmapFactory.decodeFile(file.absolutePath, options)
+                ?: return
+
+            // Rotation
+            rotatedBitmap = determineImageRotation(file.absolutePath, originalBitmap)
+
+            finalBitmap = if (rotatedBitmap.isMutable) {
+                rotatedBitmap
+            } else {
+                rotatedBitmap.copy(Bitmap.Config.ARGB_8888, true)
+            }
+
+            // If copy created, recycle rotatedBitmap
+            if (finalBitmap != rotatedBitmap) {
+                rotatedBitmap.recycle()
+            }
+
+            val canvas = Canvas(finalBitmap)
+
+            // Dynamic text size (better UX)
+            val textSize = finalBitmap.width * 0.05f
+
+            val paint = Paint().apply {
+                color = Color.GREEN
+                this.textSize = textSize
+                isAntiAlias = true
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                setShadowLayer(5f, 2f, 2f, Color.BLACK)
+            }
+
+            val timestamp = SimpleDateFormat(
+                TIMESTAMP_FORMAT, Locale.US
+            ).format(Date())
+
+            val margin = finalBitmap.width * 0.03f
+            val textWidth = paint.measureText(timestamp)
+
+            val x = finalBitmap.width - textWidth - margin
+            val y = finalBitmap.height - margin
+
+            // Background for readability
+            val bgPaint = Paint().apply {
+                color = Color.BLACK
+                alpha = 0
+            }
+
+            val padding = margin / 2
+
+            canvas.drawRect(
+                x - padding,
+                y - paint.textSize - padding,
+                x + textWidth + padding,
+                y + padding,
+                bgPaint
+            )
+
+            canvas.drawText(timestamp, x, y, paint)
+
+            // Safe file write (auto close)
+            FileOutputStream(file).use { outputStream ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
+                outputStream.flush()
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            // Ensure ALL bitmaps are released
+            originalBitmap?.recycle()
+            rotatedBitmap?.takeIf { it != originalBitmap }?.recycle()
+            finalBitmap?.takeIf { it != rotatedBitmap }?.recycle()
+        }
+    }
+
+    private fun determineImageRotation(imageFilePath: String, bitmap: Bitmap): Bitmap {
+        val matrix = Matrix()
+
+        return try {
+            val exif = ExifInterface(imageFilePath)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+
+            // Apply rotation based on orientation
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                else -> return bitmap // No rotation needed
+            }
+
+            // Create and return the rotated bitmap
+            Bitmap.createBitmap(
+                bitmap,
+                0,
+                0,
+                bitmap.width,
+                bitmap.height,
+                matrix,
+                true
+            ).also { bitmap.recycle() } // Recycle the original bitmap to free memory
+        } catch (e: Exception) {
+            e.printStackTrace()
+            bitmap // Return the original bitmap if an error occurs
+        }
+    }
+
     companion object {
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
+        private const val TIMESTAMP_FORMAT = "MM-dd-yyyy HH:mm:ss"
         private const val TAG = "CameraXBasic"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
