@@ -124,7 +124,7 @@ internal fun PixBindings.setupClickControls(
                 isEnabled = true
             }, 1000L)
         }
-        var isRecording = false
+        /*var isRecording = false
         setOnLongClickListener {
             if (options.mode == Mode.Picture) {
                 return@setOnLongClickListener false
@@ -178,8 +178,8 @@ internal fun PixBindings.setupClickControls(
                 }
             }
             true
-        }
-        setOnTouchListener { _, event ->
+        }*/
+        /*setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                 controlsLayout.primaryClickBackground.hide()
                 controlsLayout.primaryClickBackground.animate().scaleX(1f).scaleY(1f)
@@ -213,7 +213,7 @@ internal fun PixBindings.setupClickControls(
                 cameraXManager?.recording?.stop()
             }
             false
-        }
+        }*/
         gridLayout.selectionOk.setOnClickListener { callback(0, Uri.EMPTY) }
         gridLayout.sendButton.setOnClickListener { callback(0, Uri.EMPTY) }
         gridLayout.selectionBack.setOnClickListener { callback(1, Uri.EMPTY) }
