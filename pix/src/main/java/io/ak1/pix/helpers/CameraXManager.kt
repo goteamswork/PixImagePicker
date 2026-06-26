@@ -30,7 +30,9 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.OrientationEventListener
 import android.view.ScaleGestureDetector
+import android.view.Surface
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -84,6 +86,8 @@ class CameraXManager(
     private var useCases = ArrayList<UseCase>()
     private var preview: Preview? = null
     private var cameraProvider: ProcessCameraProvider? = null
+    private var orientationEventListener: OrientationEventListener? = null
+    private var deviceRotation: Int = Surface.ROTATION_0
 
     // Select back camera as a default
     private var cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -130,6 +134,7 @@ class CameraXManager(
             videoCapture = null
             preview = null
             useCases.clear()
+            stopOrientationListener()
         } catch (e: CameraAccessException) {
             Log.e("CameraXManager", "CameraAccessException during shutdown: ${e.message}")
         } catch (e: SecurityException) {
@@ -169,7 +174,9 @@ class CameraXManager(
         }
         Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
 
-        val rotation = previewView.display.rotation
+        deviceRotation = previewView.display.rotation
+        startOrientationListener()
+        val rotation = deviceRotation
 
         // CameraProvider
         val cameraProvider = cameraProvider
@@ -257,6 +264,8 @@ class CameraXManager(
             }
         }
 
+        videoCapture?.targetRotation = rotation
+
         // Must unbind the use-cases before rebinding them
         cameraProvider.unbindAll()
 
@@ -323,6 +332,7 @@ class CameraXManager(
     fun takePhoto(callback: (Uri, String?) -> Unit) {
         // Get a stable reference of the modifiable image capture use case
         val imageCapture = imageCapture ?: return
+        imageCapture.targetRotation = deviceRotation
 
         // Create time-stamped output file to hold the image
         val photoFile = File(
@@ -421,6 +431,45 @@ class CameraXManager(
 
     /** Returns true if the device has an available front camera. False otherwise */
     private fun hasFrontCamera(): Boolean = cameraProvider?.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) ?: false
+
+    private fun startOrientationListener() {
+        if (orientationEventListener != null) return
+
+        orientationEventListener = object : OrientationEventListener(requireActivity) {
+            override fun onOrientationChanged(orientation: Int) {
+                updateTargetRotation(rotationFromOrientation(orientation))
+            }
+        }
+
+        if (orientationEventListener?.canDetectOrientation() == true) {
+            orientationEventListener?.enable()
+        }
+    }
+
+    private fun stopOrientationListener() {
+        orientationEventListener?.disable()
+        orientationEventListener = null
+    }
+
+    private fun rotationFromOrientation(orientation: Int): Int {
+        if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) {
+            return deviceRotation
+        }
+        return when (orientation) {
+            in 45 until 135 -> Surface.ROTATION_270
+            in 135 until 225 -> Surface.ROTATION_180
+            in 225 until 315 -> Surface.ROTATION_90
+            else -> Surface.ROTATION_0
+        }
+    }
+
+    private fun updateTargetRotation(rotation: Int) {
+        if (rotation == deviceRotation) return
+        deviceRotation = rotation
+        preview?.targetRotation = rotation
+        imageCapture?.targetRotation = rotation
+        videoCapture?.targetRotation = rotation
+    }
 
     private fun aspectRatio(width: Int, height: Int): Int {
         val previewRatio = max(width, height).toDouble() / min(width, height)
